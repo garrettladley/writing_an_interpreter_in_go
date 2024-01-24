@@ -1,0 +1,64 @@
+name: Go
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    paths:
+      - "src/**"
+      - ".github/workflows/go.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  format:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: "1.21"
+      - name: Enforce formatting
+        run: gofmt -l ./src/monkey | grep ".go$" | xargs -r echo "Files not formatted:"
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: "1.21"
+      - name: Enforce linting
+        run: |
+          cd ./src/monkey/ && lint_output=$(go vet ./...)
+          if [[ -n "$lint_output" ]]; then
+            echo "$lint_output"
+            echo "::error::Linting issues found"
+            exit 1
+          fi
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: "1.21"
+      - name: Install Dependencies
+        run: cd ./src/monkey/ && go get ./...
+      - name: Run Tests with Coverage
+        run: cd ./src/monkey/ && go test -failfast -benchmem -race -coverprofile=coverage.txt ./...
+      - name: Print Coverage
+        run: cd ./src/monkey/ && go tool cover -func=coverage.txt
