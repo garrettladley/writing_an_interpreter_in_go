@@ -4,9 +4,13 @@ import (
 	"testing"
 
 	"monkey/token"
+
+	"github.com/huandu/go-assert"
 )
 
 func TestNextToken(t *testing.T) {
+	assert := assert.New(t)
+
 	input := `let five = 5;
 let ten = 10;
 
@@ -110,17 +114,11 @@ if (5 < 10) {
 
 	l := New(input)
 
-	for i, tt := range tests {
+	for _, tt := range tests {
 		tok := l.NextToken()
 
-		if tok.Type != tt.expectedType {
-			t.Fatalf("tests[%d] - tokentype wrong. expected=%q, got=%q",
-				i, tt.expectedType, tok.Type)
-		}
+		assert.Equal(tok.Type, tt.expectedType)
 
-		if tok.Literal != tt.expectedLiteral {
-			t.Fatalf("tests[%d] - literal wrong. expected=%q, got=%q",
-				i, tt.expectedLiteral, tok.Literal)
-		}
+		assert.Equal(tok.Literal, tt.expectedLiteral)
 	}
 }
