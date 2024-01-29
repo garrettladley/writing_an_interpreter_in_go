@@ -4,9 +4,12 @@ on:
   push:
     branches:
       - main
+    paths:
+      - "src/monkey/**"
+      - ".github/workflows/go.yml"
   pull_request:
     paths:
-      - "src/**"
+      - "src/monkey/**"
       - ".github/workflows/go.yml"
 
 concurrency:
