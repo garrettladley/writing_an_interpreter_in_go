@@ -1,6 +1,6 @@
 module monkey
 
-go 1.21
+go 1.22
 
 require github.com/huandu/go-assert v1.1.6
 

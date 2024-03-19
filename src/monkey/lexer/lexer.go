@@ -1,145 +1,170 @@
 package lexer
 
-import "monkey/token"
+import (
+	"fmt"
+	"strings"
+	"unicode"
+	"unicode/utf8"
+
+	"monkey/token"
+)
+
+const eof = -1
 
 type Lexer struct {
 	input        string
-	position     int  // current position in input (points to current char)
-	readPosition int  // current reading position in input (after current char)
-	ch           byte // current char under examination
+	position     int // current position in input (points to current char)
+	readPosition int // current reading position in input (after current char)
+	width        int // width of last read char
+	tokens       chan token.Token
 }
 
-func New(input string) *Lexer {
-	l := &Lexer{input: input}
+func New(input string) (*Lexer, chan token.Token) {
+	l := &Lexer{input: input, tokens: make(chan token.Token)}
 
-	l.readChar()
+	go l.run()
 
-	return l
+	return l, l.tokens
 }
 
-func (l *Lexer) NextToken() token.Token {
-	var tok token.Token
+type stateFn func(*Lexer) stateFn
 
-	l.skipWhitespace()
-
-	switch l.ch {
-	case '=':
-		if l.peekChar() == '=' {
-			ch := l.ch
-			l.readChar()
-			literal := string(ch) + string(l.ch)
-			tok = token.Token{Type: token.EQ, Literal: literal}
-		} else {
-			tok = newToken(token.ASSIGN, l.ch)
-		}
-	case '+':
-		tok = newToken(token.PLUS, l.ch)
-	case '-':
-		tok = newToken(token.MINUS, l.ch)
-	case '!':
-		if l.peekChar() == '=' {
-			ch := l.ch
-			l.readChar()
-			literal := string(ch) + string(l.ch)
-			tok = token.Token{Type: token.NOT_EQ, Literal: literal}
-		} else {
-			tok = newToken(token.BANG, l.ch)
-		}
-	case '/':
-		tok = newToken(token.SLASH, l.ch)
-	case '*':
-		tok = newToken(token.ASTERISK, l.ch)
-	case '<':
-		tok = newToken(token.LT, l.ch)
-	case '>':
-		tok = newToken(token.GT, l.ch)
-	case ';':
-		tok = newToken(token.SEMICOLON, l.ch)
-	case ',':
-		tok = newToken(token.COMMA, l.ch)
-	case '{':
-		tok = newToken(token.LBRACE, l.ch)
-	case '}':
-		tok = newToken(token.RBRACE, l.ch)
-	case '(':
-		tok = newToken(token.LPAREN, l.ch)
-	case ')':
-		tok = newToken(token.RPAREN, l.ch)
-	case 0:
-		tok.Literal = ""
-		tok.Type = token.EOF
-	default:
-		if isLetter(l.ch) {
-			tok.Literal = l.readIdentifier()
-			tok.Type = token.LookupIdent(tok.Literal)
-			return tok
-		} else if isDigit(l.ch) {
-			tok.Type = token.INT
-			tok.Literal = l.readNumber()
-			return tok
-		} else {
-			tok = newToken(token.ILLEGAL, l.ch)
-		}
+func (l *Lexer) run() {
+	for state := lex; state != nil; {
+		state = state(l)
 	}
-
-	l.readChar()
-
-	return tok
+	close(l.tokens)
 }
 
-func (l *Lexer) skipWhitespace() {
-	for l.ch == ' ' || l.ch == '\t' || l.ch == '\n' || l.ch == '\r' {
-		l.readChar()
+func lex(l *Lexer) stateFn {
+	for {
+		switch r := l.next(); {
+		case isSpace(r):
+			l.ignore()
+		case r == '=':
+			if l.peek() == '=' {
+				l.next()
+				l.emit(token.Equal)
+			} else {
+				l.emit(token.Assign)
+			}
+		case r == '+':
+			l.emit(token.Plus)
+		case r == '-':
+			l.emit(token.Minus)
+		case r == '!':
+			if l.peek() == '=' {
+				l.next()
+				l.emit(token.NotEqual)
+			} else {
+				l.emit(token.Bang)
+			}
+		case r == '/':
+			l.emit(token.Slash)
+		case r == '*':
+			l.emit(token.Asterisk)
+		case r == '<':
+			l.emit(token.LessThan)
+		case r == '>':
+			l.emit(token.GreaterThan)
+		case r == ';':
+			l.emit(token.Semicolon)
+		case r == ',':
+			l.emit(token.Comma)
+		case r == '(':
+			l.emit(token.LParen)
+		case r == ')':
+			l.emit(token.RParen)
+		case r == '{':
+			l.emit(token.LSquirly)
+		case r == '}':
+			l.emit(token.RSquirly)
+		case '0' <= r && r <= '9':
+			l.backup()
+			return lexNumber
+		case isAlphaNumeric(r):
+			l.backup()
+			return lexIdent
+		case r == eof:
+			l.emit(token.EOF)
+			return nil
+		default:
+			return l.errorf("unrecognized character in action: %#U", r)
+		}
 	}
 }
 
-func (l *Lexer) readChar() {
+func lexNumber(l *Lexer) stateFn {
+	digits := "0123456789"
+	l.acceptRun(digits)
+
+	if isAlphaNumeric(l.peek()) {
+		l.next()
+		return l.errorf("bad number syntax: %q", l.input[l.position:l.readPosition])
+	}
+
+	l.emit(token.Int)
+
+	return lex
+}
+
+func lexIdent(l *Lexer) stateFn {
+	for isAlphaNumeric(l.next()) {
+	}
+	l.backup()
+
+	l.emit(token.LookupIdent(l.input[l.position:l.readPosition]))
+
+	return lex
+}
+
+func (l *Lexer) next() (r rune) {
 	if l.readPosition >= len(l.input) {
-		l.ch = 0
-	} else {
-		l.ch = l.input[l.readPosition]
+		l.width = 0
+		return eof
 	}
+	r, l.width = utf8.DecodeRuneInString(l.input[l.readPosition:])
+	l.readPosition += l.width
+	return r
+}
 
+func (l *Lexer) peek() rune {
+	r := l.next()
+	l.backup()
+	return r
+}
+
+func (l *Lexer) backup() {
+	l.readPosition -= l.width
+}
+
+func (l *Lexer) emit(t token.TokenType) {
+	l.tokens <- token.Token{Type: t, Literal: l.input[l.position:l.readPosition]}
 	l.position = l.readPosition
-
-	l.readPosition += 1
 }
 
-func (l *Lexer) peekChar() byte {
-	if l.readPosition >= len(l.input) {
-		return 0
-	} else {
-		return l.input[l.readPosition]
+func (l *Lexer) ignore() {
+	l.position = l.readPosition
+}
+
+func (l *Lexer) acceptRun(valid string) {
+	for strings.ContainsRune(valid, l.next()) {
 	}
+	l.backup()
 }
 
-func (l *Lexer) readIdentifier() string {
-	position := l.position
-
-	for isLetter(l.ch) {
-		l.readChar()
+func (l *Lexer) errorf(format string, args ...interface{}) stateFn {
+	l.tokens <- token.Token{
+		Type:    token.Illegal,
+		Literal: fmt.Sprintf(format, args...),
 	}
-	return l.input[position:l.position]
+	return nil
 }
 
-func (l *Lexer) readNumber() string {
-	position := l.position
-
-	for isDigit(l.ch) {
-		l.readChar()
-	}
-
-	return l.input[position:l.position]
+func isSpace(r rune) bool {
+	return r == ' ' || r == '\t' || r == '\r' || r == '\n'
 }
 
-func isLetter(ch byte) bool {
-	return 'a' <= ch && ch <= 'z' || 'A' <= ch && ch <= 'Z' || ch == '_'
-}
-
-func isDigit(ch byte) bool {
-	return '0' <= ch && ch <= '9'
-}
-
-func newToken(tokenType token.TokenType, ch byte) token.Token {
-	return token.Token{Type: tokenType, Literal: string(ch)}
+func isAlphaNumeric(r rune) bool {
+	return r == '_' || unicode.IsLetter(r) || unicode.IsDigit(r)
 }

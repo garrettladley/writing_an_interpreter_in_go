@@ -15,7 +15,7 @@ func Start(in io.Reader, out io.Writer) {
 	scanner := bufio.NewScanner(in)
 
 	for {
-		fmt.Fprintf(out, PROMPT)
+		fmt.Fprint(out, PROMPT)
 
 		scanned := scanner.Scan()
 
@@ -25,9 +25,9 @@ func Start(in io.Reader, out io.Writer) {
 
 		line := scanner.Text()
 
-		l := lexer.New(line)
+		_, tokens := lexer.New(line)
 
-		p := parser.New(l)
+		p := parser.New(&tokens)
 
 		program := p.ParseProgram()
 

@@ -44,6 +44,7 @@ func (p *Program) String() string {
 	return out.String()
 }
 
+// Statements
 type LetStatement struct {
 	Token token.Token // the token.LET token
 	Name  *Identifier
@@ -120,6 +121,7 @@ func (bs *BlockStatement) String() string {
 	return out.String()
 }
 
+// Expressions
 type Identifier struct {
 	Token token.Token // the token.IDENT token
 	Value string
