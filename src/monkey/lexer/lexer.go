@@ -44,41 +44,49 @@ func lex(l *Lexer) stateFn {
 		case r == '=':
 			if l.peek() == '=' {
 				l.next()
-				l.emit(token.Equal)
+				l.emit(token.EQ)
 			} else {
-				l.emit(token.Assign)
+				l.emit(token.ASSIGN)
 			}
 		case r == '+':
-			l.emit(token.Plus)
+			l.emit(token.PLUS)
 		case r == '-':
-			l.emit(token.Minus)
+			l.emit(token.MINUS)
 		case r == '!':
 			if l.peek() == '=' {
 				l.next()
-				l.emit(token.NotEqual)
+				l.emit(token.NOT_EQ)
 			} else {
-				l.emit(token.Bang)
+				l.emit(token.BANG)
 			}
 		case r == '/':
-			l.emit(token.Slash)
+			l.emit(token.SLASH)
 		case r == '*':
-			l.emit(token.Asterisk)
+			l.emit(token.ASTERISK)
 		case r == '<':
-			l.emit(token.LessThan)
+			l.emit(token.LT)
 		case r == '>':
-			l.emit(token.GreaterThan)
+			l.emit(token.GT)
 		case r == ';':
-			l.emit(token.Semicolon)
+			l.emit(token.SEMICOLON)
+		case r == ':':
+			l.emit(token.COLON)
 		case r == ',':
-			l.emit(token.Comma)
+			l.emit(token.COMMA)
 		case r == '(':
-			l.emit(token.LParen)
+			l.emit(token.LPAREN)
 		case r == ')':
-			l.emit(token.RParen)
+			l.emit(token.RPAREN)
 		case r == '{':
-			l.emit(token.LSquirly)
+			l.emit(token.LSQUIRLY)
 		case r == '}':
-			l.emit(token.RSquirly)
+			l.emit(token.RSQUIRLY)
+		case r == '[':
+			l.emit(token.LBRACKET)
+		case r == ']':
+			l.emit(token.RBRACKET)
+		case r == '"':
+			return lexString
 		case '0' <= r && r <= '9':
 			l.backup()
 			return lexNumber
@@ -94,6 +102,41 @@ func lex(l *Lexer) stateFn {
 	}
 }
 
+func lexString(l *Lexer) stateFn {
+	if l.next() == '"' {
+		// handle the case where the string is empty
+		l.readPosition = l.position
+		l.emit(token.STRING)
+
+		// move the position to the next character
+		l.position += 1
+		l.readPosition += 2
+
+		return lex
+	}
+
+	for {
+		switch r := l.next(); {
+		case r == '"':
+			// handle the " character at the beginning and end of the string
+			startStringPosition := l.position + 1
+			endStringPosition := l.readPosition - 1
+
+			l.position = startStringPosition
+			l.readPosition = endStringPosition
+
+			l.emit(token.STRING)
+
+			l.position = endStringPosition + 1
+			l.readPosition = endStringPosition + 1
+
+			return lex
+		case r == eof:
+			return l.errorf("unterminated string")
+		}
+	}
+}
+
 func lexNumber(l *Lexer) stateFn {
 	digits := "0123456789"
 	l.acceptRun(digits)
@@ -103,7 +146,7 @@ func lexNumber(l *Lexer) stateFn {
 		return l.errorf("bad number syntax: %q", l.input[l.position:l.readPosition])
 	}
 
-	l.emit(token.Int)
+	l.emit(token.INT)
 
 	return lex
 }
@@ -155,7 +198,7 @@ func (l *Lexer) acceptRun(valid string) {
 
 func (l *Lexer) errorf(format string, args ...interface{}) stateFn {
 	l.tokens <- token.Token{
-		Type:    token.Illegal,
+		Type:    token.ILLEGAL,
 		Literal: fmt.Sprintf(format, args...),
 	}
 	return nil

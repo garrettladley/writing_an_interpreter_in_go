@@ -1,16 +1,13 @@
 package lexer
 
 import (
+	"fmt"
 	"testing"
 
 	"monkey/token"
-
-	"github.com/huandu/go-assert"
 )
 
 func TestNextToken(t *testing.T) {
-	assert := assert.New(t)
-
 	input := `let five = 5;
 let ten = 10;
 
@@ -30,100 +27,123 @@ if (5 < 10) {
 
 10 == 10;
 10 != 9;
+"foobar"
+"foo bar"
+[1, 2];
+{"foo": "bar"}
+""
 `
 
 	tests := []struct {
 		expectedType    token.TokenType
 		expectedLiteral string
 	}{
-		{token.Let, "let"},
-		{token.Ident, "five"},
-		{token.Assign, "="},
-		{token.Int, "5"},
-		{token.Semicolon, ";"},
-		{token.Let, "let"},
-		{token.Ident, "ten"},
-		{token.Assign, "="},
-		{token.Int, "10"},
-		{token.Semicolon, ";"},
-		{token.Let, "let"},
-		{token.Ident, "add"},
-		{token.Assign, "="},
-		{token.Function, "fn"},
-		{token.LParen, "("},
-		{token.Ident, "x"},
-		{token.Comma, ","},
-		{token.Ident, "y"},
-		{token.RParen, ")"},
-		{token.LSquirly, "{"},
-		{token.Ident, "x"},
-		{token.Plus, "+"},
-		{token.Ident, "y"},
-		{token.Semicolon, ";"},
-		{token.RSquirly, "}"},
-		{token.Semicolon, ";"},
-		{token.Let, "let"},
-		{token.Ident, "result"},
-		{token.Assign, "="},
-		{token.Ident, "add"},
-		{token.LParen, "("},
-		{token.Ident, "five"},
-		{token.Comma, ","},
-		{token.Ident, "ten"},
-		{token.RParen, ")"},
-		{token.Semicolon, ";"},
-		{token.Bang, "!"},
-		{token.Minus, "-"},
-		{token.Slash, "/"},
-		{token.Asterisk, "*"},
-		{token.Int, "5"},
-		{token.Semicolon, ";"},
-		{token.Int, "5"},
-		{token.LessThan, "<"},
-		{token.Int, "10"},
-		{token.GreaterThan, ">"},
-		{token.Int, "5"},
-		{token.Semicolon, ";"},
-		{token.If, "if"},
-		{token.LParen, "("},
-		{token.Int, "5"},
-		{token.LessThan, "<"},
-		{token.Int, "10"},
-		{token.RParen, ")"},
-		{token.LSquirly, "{"},
-		{token.Return, "return"},
-		{token.True, "true"},
-		{token.Semicolon, ";"},
-		{token.RSquirly, "}"},
-		{token.Else, "else"},
-		{token.LSquirly, "{"},
-		{token.Return, "return"},
-		{token.False, "false"},
-		{token.Semicolon, ";"},
-		{token.RSquirly, "}"},
-		{token.Int, "10"},
-		{token.Equal, "=="},
-		{token.Int, "10"},
-		{token.Semicolon, ";"},
-		{token.Int, "10"},
-		{token.NotEqual, "!="},
-		{token.Int, "9"},
-		{token.Semicolon, ";"},
+		{token.LET, "let"},
+		{token.IDENT, "five"},
+		{token.ASSIGN, "="},
+		{token.INT, "5"},
+		{token.SEMICOLON, ";"},
+		{token.LET, "let"},
+		{token.IDENT, "ten"},
+		{token.ASSIGN, "="},
+		{token.INT, "10"},
+		{token.SEMICOLON, ";"},
+		{token.LET, "let"},
+		{token.IDENT, "add"},
+		{token.ASSIGN, "="},
+		{token.FUNCTION, "fn"},
+		{token.LPAREN, "("},
+		{token.IDENT, "x"},
+		{token.COMMA, ","},
+		{token.IDENT, "y"},
+		{token.RPAREN, ")"},
+		{token.LSQUIRLY, "{"},
+		{token.IDENT, "x"},
+		{token.PLUS, "+"},
+		{token.IDENT, "y"},
+		{token.SEMICOLON, ";"},
+		{token.RSQUIRLY, "}"},
+		{token.SEMICOLON, ";"},
+		{token.LET, "let"},
+		{token.IDENT, "result"},
+		{token.ASSIGN, "="},
+		{token.IDENT, "add"},
+		{token.LPAREN, "("},
+		{token.IDENT, "five"},
+		{token.COMMA, ","},
+		{token.IDENT, "ten"},
+		{token.RPAREN, ")"},
+		{token.SEMICOLON, ";"},
+		{token.BANG, "!"},
+		{token.MINUS, "-"},
+		{token.SLASH, "/"},
+		{token.ASTERISK, "*"},
+		{token.INT, "5"},
+		{token.SEMICOLON, ";"},
+		{token.INT, "5"},
+		{token.LT, "<"},
+		{token.INT, "10"},
+		{token.GT, ">"},
+		{token.INT, "5"},
+		{token.SEMICOLON, ";"},
+		{token.IF, "if"},
+		{token.LPAREN, "("},
+		{token.INT, "5"},
+		{token.LT, "<"},
+		{token.INT, "10"},
+		{token.RPAREN, ")"},
+		{token.LSQUIRLY, "{"},
+		{token.RETURN, "return"},
+		{token.TRUE, "true"},
+		{token.SEMICOLON, ";"},
+		{token.RSQUIRLY, "}"},
+		{token.ELSE, "else"},
+		{token.LSQUIRLY, "{"},
+		{token.RETURN, "return"},
+		{token.FALSE, "false"},
+		{token.SEMICOLON, ";"},
+		{token.RSQUIRLY, "}"},
+		{token.INT, "10"},
+		{token.EQ, "=="},
+		{token.INT, "10"},
+		{token.SEMICOLON, ";"},
+		{token.INT, "10"},
+		{token.NOT_EQ, "!="},
+		{token.INT, "9"},
+		{token.SEMICOLON, ";"},
+		{token.STRING, "foobar"},
+		{token.STRING, "foo bar"},
+		{token.LBRACKET, "["},
+		{token.INT, "1"},
+		{token.COMMA, ","},
+		{token.INT, "2"},
+		{token.RBRACKET, "]"},
+		{token.SEMICOLON, ";"},
+		{token.LSQUIRLY, "{"},
+		{token.STRING, "foo"},
+		{token.COLON, ":"},
+		{token.STRING, "bar"},
+		{token.RSQUIRLY, "}"},
+		{token.STRING, ""},
 		{token.EOF, ""},
 	}
 
 	_, tokens := New(input)
 
-	numTests := len(tests)
-
 	index := 0
 	for token := range tokens {
-		assert.Equal(token.Type, tests[index].expectedType)
+		if token.Type != tests[index].expectedType {
+			fmt.Println(token, tests[index])
 
-		assert.Equal(token.Literal, tests[index].expectedLiteral)
+			t.Fatalf("tests[%d] - tokentype wrong. expected=%q, got=%q",
+				index, tests[index].expectedType, token.Type)
+		}
+
+		if token.Literal != tests[index].expectedLiteral {
+			t.Fatalf("tests[%d] - literal wrong. expected=%q, got=%q",
+				index, tests[index].expectedLiteral, token.Literal)
+		}
 
 		index++
 	}
-
-	assert.Equal(index, numTests)
 }
